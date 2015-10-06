@@ -1,53 +1,45 @@
 package io.scalac
 
 import shapeless._
-import shapeless.ops.product.ToHList
+import shapeless.ops.function.FnToProduct
+import shapeless.ops.hlist.Tupler
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.languageFeature.implicitConversions
 import scala.util.{Failure, Success}
-
 package object hzip {
 
-  sealed trait HZippable[H <: HList] {
-    type Out <: HList
-
-    def hzip: Future[Out]
+  trait IsHListOfFutures[In <: HList, Out <:HList ] {
+    def hsequence(l : In)(implicit ec: ExecutionContext): Future[Out]
   }
 
-  implicit val ec: ExecutionContext = ExecutionContext.Implicits.global
+  object IsHListOfFutures {
+    def apply[In <: HList, Out <: HList](implicit isHzippable: IsHListOfFutures[In, Out]): IsHListOfFutures[In, Out] = isHzippable
 
-  implicit class HNilZippable(x: HNil) extends HZippable[HNil] {
-    type Out = HNil
-
-    def hzip: Future[HNil] = Future.successful(HNil)
-  }
-
-
-  implicit class HConsHZippable[H, T <: HList <% HZippable[T]](l: Future[H] :: T)
-                                  (implicit ec: ExecutionContext)
-    extends HZippable[Future[H] :: T] {
-
-    val tzippable: HZippable[T] = l.tail
-
-    type Out = H :: tzippable.Out
-
-    def hzip: Future[Out] = {
-      val f = l.head
-      val p = scala.concurrent.Promise[H :: tzippable.Out]
-      f.onComplete {
-        case Success(e) => tzippable.hzip onComplete { zipped =>
-          p complete zipped.map(e :: _)
-        }
-        case Failure(ex) => p.failure(ex)
-      }
-      p.future
+    implicit object HNilIsListOfFutures extends IsHListOfFutures[HNil, HNil] {
+      override def hsequence(l : HNil)(implicit ec: ExecutionContext): Future[HNil] = Future.successful(HNil)
     }
+
+    implicit def hconsIsHListOfFutures[H, In <: HList, Out <: HList]
+         (implicit ev: IsHListOfFutures[In, Out]): IsHListOfFutures[Future[H] :: In, H :: Out] = new IsHListOfFutures[Future[H] :: In, H :: Out] {
+
+      override def hsequence(l : Future[H] :: In)(implicit ec: ExecutionContext): Future[H :: Out] = {
+        val head = l.head
+        val tail = l.tail
+        head.flatMap(h => ev.hsequence(tail).map(h :: _))
+      }
+    }
+
   }
 
+  def hsequence[In <: HList, Out <: HList](l : In)(implicit ev: IsHListOfFutures[In, Out], ec: ExecutionContext) = ev.hsequence(l)
 
-  def hzip[P <: Product, H, T <: HList <% HZippable[T]](p: P)(implicit toHList: ToHList.Aux[P, Future[H] :: T]) =
-    toHList(p).hzip
+  def zip[P <: Product, In <: HList, Out <: HList]
+    (p: P)
+    (implicit gen: Generic.Aux[P, In], ev: IsHListOfFutures[In, Out], tupler: Tupler[Out], ec: ExecutionContext) = {
 
+    hsequence(gen.to(p)).map(_.tupled)
 
+  }
 
 }
