@@ -26,6 +26,23 @@ package object shapelessmonad {
     }
   }
 
+  def zip[M[_], P <: Product, In <: HList, Out <: HList]
+  (p: P)
+  (implicit gen: Generic.Aux[P, In], ev: IsHListOfM[M, In, Out], tupler: Tupler[Out], m: Monad[M]) = {
+    m.map(hsequence(gen.to(p)))(_.tupled)
+  }
+
+  def -->[M[_], P <: Product, In <: HList, Out <: HList, F, Out1]
+  (p: P)(f: F)
+  (implicit gen: Generic.Aux[P, In],
+   ev: IsHListOfM[M, In, Out],
+   tupler: Tupler[Out],
+   m: Monad[M],
+   fnEv: FnToProduct.Aux[F, Out => Out1]
+  ): M[Out1] = {
+    m.map(hsequence(gen.to(p)))(fnEv(f))
+  }
+
   def hsequence[M[_], In <: HList, Out <: HList](l: In)(implicit ev: IsHListOfM[M, In, Out], m: Monad[M]) = ev.hsequence(l)
 
   case class ScalacApplicativeBuilder[M[_], In <: HList, Out <: HList](values: In)(implicit m: Monad[M]) {
