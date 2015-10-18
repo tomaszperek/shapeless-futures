@@ -1,12 +1,9 @@
 package io.scalac
 
 import shapeless._
-import shapeless.ops.function.FnToProduct
 import shapeless.ops.hlist.Tupler
-
 import scala.concurrent.{ExecutionContext, Future}
 import scala.languageFeature.implicitConversions
-import scala.util.{Failure, Success}
 package object hzip {
 
   trait IsHListOfFutures[In <: HList, Out <:HList ] {
@@ -29,7 +26,6 @@ package object hzip {
         head.flatMap(h => ev.hsequence(tail).map(h :: _))
       }
     }
-
   }
 
   def hsequence[In <: HList, Out <: HList](l : In)(implicit ev: IsHListOfFutures[In, Out], ec: ExecutionContext) = ev.hsequence(l)
@@ -41,5 +37,4 @@ package object hzip {
     hsequence(gen.to(p)).map(_.tupled)
 
   }
-
 }
