@@ -1,4 +1,4 @@
-package io.scalac.shapelessmonad
+package io.scalac.shapelessapplicative
 
 import org.scalatest.{Matchers, FlatSpec}
 import org.scalatest.concurrent.ScalaFutures
