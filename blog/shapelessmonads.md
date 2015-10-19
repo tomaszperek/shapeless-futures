@@ -41,7 +41,7 @@ So here's the thesis: *With shapeless you can create code, that is much more fle
 
 ## <a href="#first-steps" name="first-steps">First steps</a>
 
-Before we start, let's say what's wrong with the code from last post. It's only for `Futures`. The one advantage `ApplicativeBuilder` has over hsequence / zip functions is that it works with any Applicative. So it will work with `Option`s, `List`s, not only `Future`s. `zip` is only for `Future`s. So let's remove this constraint.
+Before we start, let's say what's wrong with the code from last post. It's only for `Futures`. The advantage `ApplicativeBuilder` has over `hsequence` / `zip` functions is that it works with any Applicative. So it will work with `Option`s, `List`s, not only `Future`s. `zip` is only for `Future`s. So let's remove this constraint.
 
 Our base trait will now look as follows:
 ```scala
@@ -49,7 +49,7 @@ trait IsHListOfM[M[_], In <: HList, Out <: HList] extends ToMonadOps{
 	def hsequence(l: In): M[Out]
 }
 ```
-what has changed? Besides name, which now reflects that this thing is not intended to work only with `Future`s, the trait has one more type parameter, `M[_]`, a type constructor, and the return value of `hsequence` method changed from `Future[Out]` to `M[Out]`. Let's not pay attention to `MonadOps` for a while, it's enabling using `bind`(`flatMap`) and `map` on instances of `M`.
+what has changed? Besides name, which now reflects that this thing is not intended to work only with `Future`s, the trait has one more type parameter, `M[_]`, a type constructor, and the return value of `hsequence` method changed from `Future[Out]` to `M[Out]`. Let's not pay attention to `MonadOps` for a while, it's enabling some implicit conversions of instances of `M` and actually makes no impact on the subject here.
 Now, traditionally, implementation for `HNil`:
 ```scala
 implicit def IsHNilHListOfM[M[_]](implicit m: Monad[M]) = new IsHListOfM[M, HNil, HNil] {
@@ -117,12 +117,12 @@ class ZipSpec extends FlatSpec with ScalaFutures with Matchers {
 }
 ```
 It may be a bit surprising how does it work with `List`s, but's exactly the same as if you used `|@|` from scalaz.
-Now, one challenge solved, we have our `zip`/`hsequence` working with everything that belongs to `Monad` type class.
+One challenge solved, we have our `zip`/`hsequence` working with everything that belongs to `Monad` type class.
 
 ## <a href="#applicativebuilder" name="applicativebuilder">Our Own Applicative Builder</a>
 
-We are just one step away from giving life to our own AppllicativeBuilder. But before we do it, let's recall what it actually is. Well, it's a trait, that allows you to combine `Applicative`s using `|@|` operator and then either return tuple with combined applicative or execute some function on it, just as it was demonstrated in @caente's comment. Now, why are we reimplementing it?. This is why:
-<a href="https://github.com/scalaz/scalaz/blob/series/7.2.x/core/src/main/scala/scalaz/syntax/ApplicativeBuilder.scala"> its implementation</a>. The code is ~170 lines long and it's a pyramid that just begs to be simplified. I won't make you wait any longer - here's the code:
+We are now just one step away from giving life to our own `ApplicativeBuilder`. But before we do it, let's recall what it actually is. Well, it's a trait, that allows you to combine `Applicative`s using `|@|` operator and then either return tuple with combined applicative or execute some function on it, just as it was demonstrated in @caente's comment. Now, why are we reimplementing it?. This is why:
+<a href="https://github.com/scalaz/scalaz/blob/series/7.2.x/core/src/main/scala/scalaz/syntax/ApplicativeBuilder.scala"> its implementation</a>. The code is ~170 lines long and it's a pyramid that is just begginh to be simplified. You have just one mean to do it, and it's type-level programming. I won't make you wait any longer - here's the code:
 ```scala
 case class ScalacApplicativeBuilder[M[_], In <: HList, Out <: HList](values: In)(implicit m: Monad[M]) {
   def asTuple[T](implicit  ev: IsHListOfM[M, In, Out], m: Monad[M], tupler: Tupler.Aux[Out, T]): M[T] = m.map(hsequence(values))(_.tupled)
@@ -140,7 +140,7 @@ implicit def ToScalacApplicativeBuilder[M[_], V](value: M[V])(implicit ev: IsHLi
 ```
 and that's actually it.
 
-How does it work? First important thing is that it maintains a HList of `Monad`s in `values` field. `:@:` just adds one more item this list. `asTuple` is just calling `hsequece` on values and turns the result into `Tuple`. `apply` transforms given function argument into `HList` equivalent and then maps results of `hsequence` with that equivalent. And that's that.
+How does it work? First important thing is that it maintains a `HList` of `Monad`s in `values` field. `:@:` just adds one more item this list. `asTuple` is just calling `hsequece` on values and turns the result into `Tuple`. `apply` transforms given function argument into `HList` equivalent and then maps results of `hsequence` with that equivalent. And that's that.
 
 Now, did we prove our thesis? I think we did. Together with imports, the full and standalone implementation of our `ScalacApplicativeBuilder` is only 42 lines long:
 ```scala
@@ -212,9 +212,9 @@ class AppbuilderSpecs extends FlatSpec with Matchers with ScalaFutures {
 }
 ```
 
-As we can see, we can do what we could with original `ApplicativeBuilder` and more.
+As we can see, we can do what we could with original `ApplicativeBuilder` and more. The only drawback is that original one worked with members of 'Apply' type class, and we for sake of making our lives easier, implemented it for 'Monad'. It would be a nice exercise to rewrite it, but taking into account what we needed to show here, it's ok like that.
 
-I hope you enjoyed reading this post as much as I did writing it, but what I hope even more, is that I have managed to convince at least some people to look kindly on shapeless.
+So that's a **QED** :) I hope you enjoyed reading this post as much as I did writing it, but what I hope even more, is that I have managed to convince at least some people to look kindly on shapeless.
 
 Thank you!
 
