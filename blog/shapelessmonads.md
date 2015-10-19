@@ -212,7 +212,7 @@ class AppbuilderSpecs extends FlatSpec with Matchers with ScalaFutures {
 }
 ```
 
-As we can see, we can do what we could with original `ApplicativeBuilder` and more. The only drawback is that original one worked with members of 'Apply' type class, and we for sake of making our lives easier, implemented it for 'Monad'. It would be a nice exercise to rewrite it, but taking into account what we needed to show here, it's ok like that.
+As we can see, we can do what we could with original `ApplicativeBuilder` and more. The only drawback is that original one worked with members of `Apply` type class, and we for sake of making our lives easier, implemented it for `Monad`. It would be a nice exercise to rewrite it, but taking into account what we needed to show here, it's ok like that.
 
 So that's a **QED** :) I hope you enjoyed reading this post as much as I did writing it, but what I hope even more, is that I have managed to convince at least some people to look kindly on shapeless.
 
